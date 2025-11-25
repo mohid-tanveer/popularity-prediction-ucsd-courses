@@ -1,3 +1,5 @@
 # Popularity Prediction for UCSD Courses
 
-## TBD
+## Dataset
+
+https://github.com/UCSD-Historical-Enrollment-Data/UCSDHistEnrollData
