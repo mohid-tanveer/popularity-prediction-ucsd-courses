@@ -1,11 +1,8 @@
 from typing import Any, Dict, List, Tuple
 from collections import defaultdict
 
-# TODO: this is boilerplate for my rating prediction from assignment 1, so we should try and repurpose it for popularity prediction
-
-
 ##################################################
-# rating prediction                              #
+# bias-only model                                #
 ##################################################
 
 
