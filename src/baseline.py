@@ -13,9 +13,9 @@ class baseline_model:
 
 
 
-    def fit(self, train_data, global_avg):
+    def fit(self, train_data, global_avg = None):
 
-        alpha = global_avg
+       
 
         users_per_item = defaultdict(list)
         items_per_user = defaultdict(list)
@@ -29,14 +29,30 @@ class baseline_model:
             items_per_user[u].append((i,r))
             users_per_item[i].append((u,r))
 
-        # ALS
-        for _ in range(self.n_iter):
-            
-            # update alpha 
+        
+
+        # update alpha if avg not provided 
+        if global_avg is None:
             sum_a  = 0.0
             for u,i,r in train_data:
                 sum_a += r - self.beta_u[u] -self.beta_i[i]
             self.alpha = sum_a / n
+            update_alpha = True
+
+        else: # if avg is already provided, just use it
+            self.alpha = global_avg
+            update_alpha = False
+        
+        # ALS
+        for _ in range(self.n_iter):
+            
+            # update alpha if avg is not provided
+            if update_alpha:
+                sum_a = 0.0
+                for u, i, r in train_data:
+                    sum_a += r - self.beta_u[u] - self.beta_i[i]
+                self.alpha = sum_a / n
+
 
 
             # update beta_U
