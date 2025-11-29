@@ -112,7 +112,7 @@ def validMSE(ratingsValid, alpha, betaU, betaI, itemToDept, globalAlpha):
     return mse
 
 
-def myRatingModel(
+def biasOnlyModel(
     ratingsTrain,
     ratingsValid,
     ratingsPerUser,

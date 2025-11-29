@@ -1,8 +1,8 @@
-def compute_global_average(ratings):
+def globalAverage(ratings):
     return sum(rating for _, _, rating in ratings) / len(ratings)
 
 
-def global_average_mse(ratings_train, ratings_valid):
+def baselineMSE(ratings_train, ratings_valid):
     # return mse when predicting the global average everywhere
     global_avg = compute_global_average(ratings_train)
 
