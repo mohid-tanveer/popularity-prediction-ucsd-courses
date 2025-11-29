@@ -1,19 +1,6 @@
 import numpy as np
 from collections import defaultdict
 
-
-def getGlobalAverage(trainRatings):
-    # return the average rating in the training set
-    return sum(trainRatings) / len(trainRatings)
-
-
-def trivialValidMSE(ratingsValid, globalAverage):
-    return sum((rating[2] - globalAverage) ** 2 for rating in ratingsValid) / len(
-        ratingsValid
-    )
-
-
-
 class baseline_model:
     def __init__(self, lamb, n_iter):
         self.lamb = lamb
