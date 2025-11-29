@@ -10,7 +10,7 @@ def getDepartmentAverages(ratingsTrain, itemToDept):
     deptRatings = defaultdict(list)
     globalSum = 0
     globalCount = 0
-    for user, item, rating in ratingsTrain:
+    for _, item, rating in ratingsTrain:
         dept = itemToDept.get(item, "UNKNOWN")
         deptRatings[dept].append(rating)
         globalSum += rating
