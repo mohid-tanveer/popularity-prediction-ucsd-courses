@@ -1,5 +1,4 @@
-from typing import Any
-
+from typing import Any, Dict, List, Tuple
 from collections import defaultdict
 
 # TODO: this is boilerplate for my rating prediction from assignment 1, so we should try and repurpose it for popularity prediction
@@ -10,47 +9,83 @@ from collections import defaultdict
 ##################################################
 
 
-def alphaUpdate(ratingsTrain, alpha, betaU, betaI):
-    # update equation for alpha
-    newAlpha = 0
+def getDepartmentAverages(ratingsTrain, itemToDept):
+    deptRatings = defaultdict(list)
+    globalSum = 0
+    globalCount = 0
     for user, item, rating in ratingsTrain:
+        dept = itemToDept.get(item, "UNKNOWN")
+        deptRatings[dept].append(rating)
+        globalSum += rating
+        globalCount += 1
+
+    deptAvgs = {}
+    for dept, ratings in deptRatings.items():
+        deptAvgs[dept] = sum(ratings) / len(ratings)
+
+    globalAvg = globalSum / globalCount if globalCount > 0 else 0
+    return deptAvgs, globalAvg
+
+
+def alphaUpdate(ratingsTrain, alpha, betaU, betaI, itemToDept):
+    # update equation for alpha (per department)
+    deptResiduals = defaultdict(float)
+    deptCounts = defaultdict(int)
+
+    for user, item, rating in ratingsTrain:
+        dept = itemToDept.get(item, "UNKNOWN")
         bu = betaU.get(user, 0)
         bi = betaI.get(item, 0)
-        newAlpha += rating - (bu + bi)
-    return newAlpha / len(ratingsTrain)
+        deptResiduals[dept] += rating - (bu + bi)
+        deptCounts[dept] += 1
+
+    newAlpha = {}
+    for dept in deptResiduals:
+        newAlpha[dept] = deptResiduals[dept] / deptCounts[dept]
+
+    return newAlpha
 
 
-def betaUUpdate(ratingsPerUser, alpha, betaU, betaI, lambU):
+def betaUUpdate(ratingsPerUser, alpha, betaU, betaI, lambU, itemToDept, globalAlpha):
     # update equation for betaU
-    newBetaU = defaultdict[Any, float](float)
+    newBetaU = defaultdict(float)
     for user in ratingsPerUser:
-        newBetaU[user] = 0
+        res = 0
         for item, rating in ratingsPerUser[user]:
+            dept = itemToDept.get(item, "UNKNOWN")
+            a = alpha.get(dept, globalAlpha)
             bi = betaI.get(item, 0)
-            newBetaU[user] += rating - (alpha + bi)
-        newBetaU[user] /= lambU + len(ratingsPerUser[user])
+            res += rating - (a + bi)
+        newBetaU[user] = res / (lambU + len(ratingsPerUser[user]))
     return newBetaU
 
 
-def betaIUpdate(ratingsPerItem, alpha, betaU, betaI, lambI):
+def betaIUpdate(ratingsPerItem, alpha, betaU, betaI, lambI, itemToDept, globalAlpha):
     # update equation for betaI
-    newBetaI = defaultdict[Any, float](float)
+    newBetaI = defaultdict(float)
     for item in ratingsPerItem:
-        newBetaI[item] = 0
+        res = 0
         for user, rating in ratingsPerItem[item]:
+            dept = itemToDept.get(item, "UNKNOWN")
             bu = betaU.get(user, 0)
-            newBetaI[item] += rating - (alpha + bu)
-        newBetaI[item] /= lambI + len(ratingsPerItem[item])
+            a = alpha.get(dept, globalAlpha)
+            res += rating - (a + bu)
+        newBetaI[item] = res / (lambI + len(ratingsPerItem[item]))
     return newBetaI
 
 
-def msePlusReg(ratingsTrain, alpha, betaU, betaI, lambU, lambI):
+def msePlusReg(
+    ratingsTrain, alpha, betaU, betaI, lambU, lambI, itemToDept, globalAlpha
+):
     # compute the mse and the mse+regularization term
     mse = 0
     for user, item, rating in ratingsTrain:
         bu = betaU.get(user, 0)
         bi = betaI.get(item, 0)
-        pred = alpha + bu + bi
+        dept = itemToDept.get(item, "UNKNOWN")
+        a = alpha.get(dept, globalAlpha)
+
+        pred = a + bu + bi
         residual = pred - rating
 
         mse += residual**2
@@ -65,13 +100,16 @@ def msePlusReg(ratingsTrain, alpha, betaU, betaI, lambU, lambI):
     return mse, mse + regularizer
 
 
-def validMSE(ratingsValid, alpha, betaU, betaI):
+def validMSE(ratingsValid, alpha, betaU, betaI, itemToDept, globalAlpha):
     # compute the MSE on the validation set
     mse = 0
     for user, item, rating in ratingsValid:
         bu = betaU.get(user, 0)
         bi = betaI.get(item, 0)
-        pred = alpha + bu + bi
+        dept = itemToDept.get(item, "UNKNOWN")
+        a = alpha.get(dept, globalAlpha)
+
+        pred = a + bu + bi
         mse += (pred - rating) ** 2
     mse /= len(ratingsValid)
     return mse
@@ -84,6 +122,8 @@ def myRatingModel(
     ratingsPerItem,
     lambU,
     lambI,
+    itemToDept,
+    verbose=False,
 ):
     # hyperparameters
     maxIter = 100
@@ -91,46 +131,47 @@ def myRatingModel(
     earlyStopTolerance = 5e-5
 
     # initialize parameters
-    alpha = getDepartmentAverage([r for _, _, r in ratingsTrain])
-    betaU = defaultdict[Any, float](float)
-    betaI = defaultdict[Any, float](float)
+    alpha, globalAlpha = getDepartmentAverages(ratingsTrain, itemToDept)
+    betaU = defaultdict(float)
+    betaI = defaultdict(float)
 
     bestValidMSE = float("inf")
     bestParams = None
     noImprovementCount = 0
 
     for i in range(maxIter):
-        alpha = alphaUpdate(ratingsTrain, alpha, betaU, betaI)
-        betaU = betaUUpdate(ratingsPerUser, alpha, betaU, betaI, lambU)
-        betaI = betaIUpdate(ratingsPerItem, alpha, betaU, betaI, lambI)
+        alpha = alphaUpdate(ratingsTrain, alpha, betaU, betaI, itemToDept)
+        betaU = betaUUpdate(
+            ratingsPerUser, alpha, betaU, betaI, lambU, itemToDept, globalAlpha
+        )
+        betaI = betaIUpdate(
+            ratingsPerItem, alpha, betaU, betaI, lambI, itemToDept, globalAlpha
+        )
 
         trainMSE, trainMSEReg = msePlusReg(
-            ratingsTrain,
-            alpha,
-            betaU,
-            betaI,
-            lambU,
-            lambI,
+            ratingsTrain, alpha, betaU, betaI, lambU, lambI, itemToDept, globalAlpha
         )
-        vMSE = validMSE(ratingsValid, alpha, betaU, betaI)
+        vMSE = validMSE(ratingsValid, alpha, betaU, betaI, itemToDept, globalAlpha)
 
-        print(
-            f"Iteration {i + 1}: Training MSE = {trainMSE:.4f}, MSE+Reg = {trainMSEReg:.4f}, Valid MSE = {vMSE:.4f}"
-        )
+        if verbose:
+            print(
+                f"Iteration {i + 1}: Training MSE = {trainMSE:.4f}, MSE+Reg = {trainMSEReg:.4f}, Valid MSE = {vMSE:.4f}"
+            )
 
         # early stopping check
         if vMSE < bestValidMSE - earlyStopTolerance:
             bestValidMSE = vMSE
-            bestParams = (alpha, dict(betaU), dict(betaI))
+            bestParams = (alpha, dict(betaU), dict(betaI), globalAlpha)
             noImprovementCount = 0
         else:
             noImprovementCount += 1
             if noImprovementCount >= patience:
-                print(f"early stopping at iteration {i + 1}")
+                if verbose:
+                    print(f"early stopping at iteration {i + 1}")
                 break
 
     # restore best parameters
     if bestParams:
-        alpha, betaU, betaI = bestParams
+        alpha, betaU, betaI, globalAlpha = bestParams
 
-    return alpha, betaU, betaI, bestValidMSEs
+    return alpha, betaU, betaI, bestValidMSE, globalAlpha
