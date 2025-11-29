@@ -91,7 +91,7 @@ def myRatingModel(
     earlyStopTolerance = 5e-5
 
     # initialize parameters
-    alpha = getGlobalAverage([r for _, _, r in ratingsTrain])
+    alpha = getDepartmentAverage([r for _, _, r in ratingsTrain])
     betaU = defaultdict[Any, float](float)
     betaI = defaultdict[Any, float](float)
 
