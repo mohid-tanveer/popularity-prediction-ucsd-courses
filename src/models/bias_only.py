@@ -112,6 +112,19 @@ def validMSE(ratingsValid, alpha, betaU, betaI, itemToDept, globalAlpha):
     return mse
 
 
+def getBiasOnlyPreds(ratingsTrain, alpha, betaU, betaI, itemToDept, globalAlpha):
+    biasonly_preds = []
+    for user, item, _ in ratingsTrain:
+        bu = betaU.get(user, 0)
+        bi = betaI.get(item, 0)
+        dept = itemToDept.get(item, "UNKNOWN")
+        a = alpha.get(dept, globalAlpha)
+
+        pred = a + bu + bi
+        biasonly_preds.append(pred)
+    return biasonly_preds
+
+
 def biasOnlyModel(
     ratingsTrain,
     ratingsValid,
