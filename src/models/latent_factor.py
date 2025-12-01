@@ -26,7 +26,7 @@ class latent_factor_model:
         self.rng = np.random.default_rng(seed)
         self.n_factors = int(n_factors)
 
-        self.alpha = 0.0
+        self.alpha = None
         self.beta_U = defaultdict(float)
         self.beta_I = defaultdict(float)
 
@@ -46,10 +46,11 @@ class latent_factor_model:
 
 
     def fit(self,train_data):
-
-        self.alpha = float(
-            np.mean([r for (_, _, r) in train_data])
-        )
+        
+        if self.alpha is None: 
+            self.alpha = float(
+                np.mean([r for (_, _, r) in train_data])
+            )
 
         data  = list(train_data)
 
