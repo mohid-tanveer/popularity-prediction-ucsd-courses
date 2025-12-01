@@ -86,8 +86,8 @@ class latent_factor_model:
 
                 # update pu , qi
 
-                self.P[u] = self.lr * (err * qi_old - self.reg * pu_old)
-                self.Q[i] = self.lr * (err*pu_old - self.reg*qi_old)
+                self.P[u] += self.lr * (err * qi_old - self.reg * pu_old)
+                self.Q[i] += self.lr * (err*pu_old - self.reg*qi_old)
 
             mse = np.mean([(r - self.predict(u, i))**2 for u, i, r in data])
             print(f"Epoch {epoch+1}/{self.n_epochs}, train MSE = {mse:.4f}")
