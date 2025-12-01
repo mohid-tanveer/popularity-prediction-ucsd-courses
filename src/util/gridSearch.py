@@ -18,9 +18,9 @@ def grid_search_lfm(model_class, train_data, valid_data, pretrained_params=None)
     
     # 1. Parameter Grid
     param_grid = {
-        'n_factors': [5, 10, 20],
-        'lr': [0.001, 0.01, 0.02],
-        'reg': [0.01, 0.02, 0.1]
+        'n_factors': [5, 10, 20, 25],
+        'lr': [0.0001,0.001, 0.005, 0.001],
+        'reg': [0.01, 0.02, 0.1, 0.15, 0.2]
     }
     
     # Fixed parameters

@@ -47,7 +47,7 @@ class latent_factor_model:
 
     def fit(self,train_data):
         
-        if self.alpha == None: 
+        if self.alpha is None: 
             self.alpha = float(
                 np.mean([r for (_, _, r) in train_data])
             )
