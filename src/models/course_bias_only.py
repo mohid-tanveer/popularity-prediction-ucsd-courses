@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Tuple
 from collections import defaultdict
 
 ##################################################
-# bias-only model                                #
+# course bias-only model                                #
 ##################################################
 
 
@@ -28,16 +28,15 @@ def getDepartmentAverages(ratingsTrain, itemToDept):
     return deptAvgs, globalAvg
 
 
-def alphaUpdate(ratingsTrain, alpha, betaU, betaI, itemToDept):
+def alphaUpdate(ratingsTrain, alpha, betaI, itemToDept):
     # update equation for alpha (per department)
     deptResiduals = defaultdict(float)
     deptCounts = defaultdict(int)
 
-    for user, item, rating in ratingsTrain:
+    for _, item, rating in ratingsTrain:
         dept = itemToDept.get(item, "UNKNOWN")
-        bu = betaU.get(user, 0)
         bi = betaI.get(item, 0)
-        deptResiduals[dept] += rating - (bu + bi)
+        deptResiduals[dept] += rating - (bi)
         deptCounts[dept] += 1
 
     newAlpha = {}
@@ -47,46 +46,28 @@ def alphaUpdate(ratingsTrain, alpha, betaU, betaI, itemToDept):
     return newAlpha
 
 
-def betaUUpdate(ratingsPerUser, alpha, betaU, betaI, lambU, itemToDept, globalAlpha):
-    # update equation for betaU
-    newBetaU = defaultdict(float)
-    for user in ratingsPerUser:
-        res = 0
-        for item, rating in ratingsPerUser[user]:
-            dept = itemToDept.get(item, "UNKNOWN")
-            a = alpha.get(dept, globalAlpha)
-            bi = betaI.get(item, 0)
-            res += rating - (a + bi)
-        newBetaU[user] = res / (lambU + len(ratingsPerUser[user]))
-    return newBetaU
-
-
-def betaIUpdate(ratingsPerItem, alpha, betaU, betaI, lambI, itemToDept, globalAlpha):
+def betaIUpdate(ratingsPerItem, alpha, betaI, lambI, itemToDept, globalAlpha):
     # update equation for betaI
     newBetaI = defaultdict(float)
     for item in ratingsPerItem:
         res = 0
-        for user, rating in ratingsPerItem[item]:
+        for _, rating in ratingsPerItem[item]:
             dept = itemToDept.get(item, "UNKNOWN")
-            bu = betaU.get(user, 0)
             a = alpha.get(dept, globalAlpha)
-            res += rating - (a + bu)
+            res += rating - (a)
         newBetaI[item] = res / (lambI + len(ratingsPerItem[item]))
     return newBetaI
 
 
-def msePlusReg(
-    ratingsTrain, alpha, betaU, betaI, lambU, lambI, itemToDept, globalAlpha
-):
+def msePlusReg(ratingsTrain, alpha, betaI, lambI, itemToDept, globalAlpha):
     # compute the mse and the mse+regularization term
     mse = 0
     for user, item, rating in ratingsTrain:
-        bu = betaU.get(user, 0)
         bi = betaI.get(item, 0)
         dept = itemToDept.get(item, "UNKNOWN")
         a = alpha.get(dept, globalAlpha)
 
-        pred = a + bu + bi
+        pred = a + bi
         residual = pred - rating
 
         mse += residual**2
@@ -94,48 +75,43 @@ def msePlusReg(
     mse /= len(ratingsTrain)
 
     # regularization terms
-    regularizerU = sum(betaU[user] ** 2 for user in betaU)
     regularizerI = sum(betaI[item] ** 2 for item in betaI)
-    regularizer = lambU * regularizerU + lambI * regularizerI
+    regularizer = lambI * regularizerI
 
     return mse, mse + regularizer
 
 
-def validMSE(ratingsValid, alpha, betaU, betaI, itemToDept, globalAlpha):
+def validMSE(ratingsValid, alpha, betaI, itemToDept, globalAlpha):
     # compute the MSE on the validation set
     mse = 0
     for user, item, rating in ratingsValid:
-        bu = betaU.get(user, 0)
         bi = betaI.get(item, 0)
         dept = itemToDept.get(item, "UNKNOWN")
         a = alpha.get(dept, globalAlpha)
 
-        pred = a + bu + bi
+        pred = a + bi
         mse += (pred - rating) ** 2
     mse /= len(ratingsValid)
     return mse
 
 
-def getBiasOnlyPreds(ratingsTrain, alpha, betaU, betaI, itemToDept, globalAlpha):
+def getCourseBiasOnlyPreds(ratingsTrain, alpha, betaI, itemToDept, globalAlpha):
     biasonly_preds = []
-    for user, item, _ in ratingsTrain:
-        bu = betaU.get(user, 0)
+    for _, item, _ in ratingsTrain:
         bi = betaI.get(item, 0)
         dept = itemToDept.get(item, "UNKNOWN")
         a = alpha.get(dept, globalAlpha)
 
-        pred = a + bu + bi
+        pred = a + bi
         pred = clip(pred, 0, 100)
         biasonly_preds.append(pred)
     return biasonly_preds
 
 
-def biasOnlyModel(
+def courseBiasOnlyModel(
     ratingsTrain,
     ratingsValid,
-    ratingsPerUser,
     ratingsPerItem,
-    lambU,
     lambI,
     itemToDept,
     verbose=False,
@@ -147,7 +123,6 @@ def biasOnlyModel(
 
     # initialize parameters
     alpha, globalAlpha = getDepartmentAverages(ratingsTrain, itemToDept)
-    betaU = defaultdict(float)
     betaI = defaultdict(float)
 
     bestValidMSE = float("inf")
@@ -155,18 +130,15 @@ def biasOnlyModel(
     noImprovementCount = 0
 
     for i in range(maxIter):
-        alpha = alphaUpdate(ratingsTrain, alpha, betaU, betaI, itemToDept)
-        betaU = betaUUpdate(
-            ratingsPerUser, alpha, betaU, betaI, lambU, itemToDept, globalAlpha
-        )
+        alpha = alphaUpdate(ratingsTrain, alpha, betaI, itemToDept)
         betaI = betaIUpdate(
-            ratingsPerItem, alpha, betaU, betaI, lambI, itemToDept, globalAlpha
+            ratingsPerItem, alpha, betaI, lambI, itemToDept, globalAlpha
         )
 
         trainMSE, trainMSEReg = msePlusReg(
-            ratingsTrain, alpha, betaU, betaI, lambU, lambI, itemToDept, globalAlpha
+            ratingsTrain, alpha, betaI, lambI, itemToDept, globalAlpha
         )
-        vMSE = validMSE(ratingsValid, alpha, betaU, betaI, itemToDept, globalAlpha)
+        vMSE = validMSE(ratingsValid, alpha, betaI, itemToDept, globalAlpha)
 
         if verbose:
             print(
@@ -176,7 +148,7 @@ def biasOnlyModel(
         # early stopping check
         if vMSE < bestValidMSE - earlyStopTolerance:
             bestValidMSE = vMSE
-            bestParams = (alpha, dict(betaU), dict(betaI), globalAlpha)
+            bestParams = (alpha, dict(betaI), globalAlpha)
             noImprovementCount = 0
         else:
             noImprovementCount += 1
@@ -187,6 +159,6 @@ def biasOnlyModel(
 
     # restore best parameters
     if bestParams:
-        alpha, betaU, betaI, globalAlpha = bestParams
+        alpha, betaI, globalAlpha = bestParams
 
-    return alpha, betaU, betaI, bestValidMSE, globalAlpha
+    return alpha, betaI, bestValidMSE, globalAlpha

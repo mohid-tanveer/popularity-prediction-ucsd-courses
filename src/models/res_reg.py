@@ -2,10 +2,10 @@ import numpy as np
 from sklearn.linear_model import Ridge
 
 ##################################################
-# tfidf residual regression                      #
+# residual regression                            #
 ##################################################
 
-def tfidfRidgeReg(ratingsTrainWithTFIDF, preds, a=1.0):
+def ridgeReg(ratingsTrainWithTFIDF, preds, a=1.0):
     yTrain = np.array([r[-1] for r in ratingsTrainWithTFIDF])
     residuals = yTrain - preds
     
